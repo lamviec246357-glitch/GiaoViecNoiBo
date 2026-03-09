@@ -7,17 +7,8 @@
 
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <!--
-    black-translucent: status bar trong suốt, content bắt đầu từ y=0
-    GAS app bên trong tự xử lý safe-area-inset-top qua padding-top: env(safe-area-inset-top)
-    Wrapper KHÔNG được thêm safe-area thêm lần nữa
-  -->
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Giao Việc">
-  <!--
-    theme-color = màu body của GAS app = #0a1628
-    Để status bar area trên Android khớp màu
-  -->
   <meta name="theme-color" content="#0a1628">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
@@ -30,22 +21,11 @@
     html, body {
       width: 100%; height: 100%;
       overflow: hidden;
-      /*
-        ★ QUAN TRỌNG: màu này phải = màu body của GAS app (#0a1628)
-        Nếu khác màu → lộ viền 2 bên khi iframe render
-        GAS app: body { background: var(--navy-900) } = #0a1628
-      */
-      background: #0a1628;
+      background: #0a1628; /* = màu body GAS app */
       -webkit-tap-highlight-color: transparent;
       -webkit-text-size-adjust: 100%;
     }
 
-    /*
-      ★ QUAN TRỌNG: app-container phải bắt đầu từ top: 0
-      KHÔNG dùng env(safe-area-inset-top) ở đây vì:
-      - GAS app (Main.html) đã tự xử lý safe-area bên trong (#mobile-topbar có padding-top: env(...))
-      - Nếu wrapper cũng thêm safe-area → bị áp 2 lần → topbar bị đẩy xuống sai
-    */
     #app-container {
       position: fixed;
       top: 0; bottom: 0; left: 0; right: 0;
@@ -53,24 +33,6 @@
       background: #0a1628;
     }
 
-    /*
-      Kỹ thuật che banner Google "Ứng dụng này do một người dùng Google tạo"
-      
-      Banner này cao khoảng 30px và nằm TRÊN CÙNG của iframe.
-      Dùng overflow:hidden + top âm để cắt nó đi.
-
-      NHƯNG: safe-area-inset-top trên iPhone (~47-59px) phải được cộng vào
-      để topbar GAS (nằm sau banner) không bị ẩn sau notch.
-      
-      Công thức:
-        iframe.top = -(banner_height) - safe_area_top
-        iframe.height = 100% + banner_height + safe_area_top
-        
-      Vì không đọc được env() bằng CSS trong tình huống này,
-      ta dùng JS để tính và set động (xem phần script bên dưới).
-      
-      Giá trị mặc định cho thiết bị không có notch: top = -30px
-    */
     #frame-wrap {
       position: absolute;
       top: 0; bottom: 0; left: 0; right: 0;
@@ -78,11 +40,10 @@
       background: #0a1628;
     }
 
+    /* Giá trị mặc định — JS ghi đè sau khi tính safe-area */
     #app-frame {
       position: absolute;
-      /* Giá trị mặc định, JS sẽ ghi đè */
-      top: -30px;
-      left: 0;
+      top: -30px; left: 0;
       width: 100%;
       height: calc(100% + 30px);
       border: none; outline: none;
@@ -108,52 +69,42 @@
     }
     #loader.out { opacity: 0; visibility: hidden; pointer-events: none; }
 
-    .ld-wrap {
-      position: relative; width: 108px; height: 108px;
-      animation: pop-in .6s cubic-bezier(.22,1,.36,1) both;
-    }
-    @keyframes pop-in {
-      from { opacity:0; transform:scale(.55) translateY(24px); }
-      to   { opacity:1; transform:scale(1) translateY(0); }
-    }
-    .ld-glow {
-      position: absolute; inset: -28px; border-radius: 50%;
-      background: radial-gradient(circle, rgba(37,99,235,.2) 0%, transparent 70%);
-      animation: glow 2.2s ease-in-out infinite;
-    }
+    .ld-wrap { position: relative; width: 108px; height: 108px; animation: pop-in .6s cubic-bezier(.22,1,.36,1) both; }
+    @keyframes pop-in { from{opacity:0;transform:scale(.55) translateY(24px)} to{opacity:1;transform:scale(1) translateY(0)} }
+    .ld-glow { position:absolute;inset:-28px;border-radius:50%;background:radial-gradient(circle,rgba(37,99,235,.2) 0%,transparent 70%);animation:glow 2.2s ease-in-out infinite; }
     @keyframes glow { 0%,100%{transform:scale(.85);opacity:.4} 50%{transform:scale(1.15);opacity:.9} }
-    .ld-ring-a { position:absolute; inset:-16px; border-radius:50%; border:2.5px solid transparent; border-top-color:#38bdf8; border-right-color:rgba(56,189,248,.18); animation:spin 1.15s linear infinite; }
-    .ld-ring-b { position:absolute; inset:-26px; border-radius:50%; border:1.5px solid transparent; border-left-color:rgba(37,99,235,.45); border-bottom-color:rgba(56,189,248,.12); animation:spin 2.3s linear infinite reverse; }
-    .ld-ring-c { position:absolute; inset:-8px;  border-radius:50%; border:1px solid rgba(56,189,248,.2); border-top-color:rgba(56,189,248,.5); animation:spin .75s linear infinite; }
-    @keyframes spin { to { transform:rotate(360deg); } }
-    .ld-icon { width:108px; height:108px; border-radius:26px; overflow:hidden; box-shadow:0 0 0 1.5px rgba(255,255,255,.1),0 12px 40px rgba(37,99,235,.65),0 4px 12px rgba(0,0,0,.5); position:relative; z-index:1; }
-    .ld-icon img { width:100%; height:100%; display:block; object-fit:cover; }
-    .ld-text { text-align:center; z-index:1; animation:pop-in .6s .1s cubic-bezier(.22,1,.36,1) both; }
-    .ld-name { font-size:1.35rem; font-weight:800; color:#f0f6ff; letter-spacing:-.4px; margin-bottom:4px; text-shadow:0 2px 16px rgba(37,99,235,.5); }
-    .ld-sub  { font-size:.73rem; color:rgba(148,180,212,.6); letter-spacing:1px; text-transform:uppercase; margin-bottom:10px; }
-    .ld-dots { display:flex; gap:8px; justify-content:center; }
-    .ld-dots span { width:7px; height:7px; border-radius:50%; animation:dot 1.4s ease-in-out infinite; }
-    .ld-dots span:nth-child(1){background:#38bdf8;}
-    .ld-dots span:nth-child(2){background:#3b82f6; animation-delay:.2s;}
-    .ld-dots span:nth-child(3){background:#2563eb; animation-delay:.4s;}
+    .ld-ring-a { position:absolute;inset:-16px;border-radius:50%;border:2.5px solid transparent;border-top-color:#38bdf8;border-right-color:rgba(56,189,248,.18);animation:spin 1.15s linear infinite; }
+    .ld-ring-b { position:absolute;inset:-26px;border-radius:50%;border:1.5px solid transparent;border-left-color:rgba(37,99,235,.45);border-bottom-color:rgba(56,189,248,.12);animation:spin 2.3s linear infinite reverse; }
+    .ld-ring-c { position:absolute;inset:-8px;border-radius:50%;border:1px solid rgba(56,189,248,.2);border-top-color:rgba(56,189,248,.5);animation:spin .75s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .ld-icon { width:108px;height:108px;border-radius:26px;overflow:hidden;box-shadow:0 0 0 1.5px rgba(255,255,255,.1),0 12px 40px rgba(37,99,235,.65),0 4px 12px rgba(0,0,0,.5);position:relative;z-index:1; }
+    .ld-icon img { width:100%;height:100%;display:block;object-fit:cover; }
+    .ld-text { text-align:center;z-index:1;animation:pop-in .6s .1s cubic-bezier(.22,1,.36,1) both; }
+    .ld-name { font-size:1.35rem;font-weight:800;color:#f0f6ff;letter-spacing:-.4px;margin-bottom:4px;text-shadow:0 2px 16px rgba(37,99,235,.5); }
+    .ld-sub  { font-size:.73rem;color:rgba(148,180,212,.6);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px; }
+    .ld-dots { display:flex;gap:8px;justify-content:center; }
+    .ld-dots span { width:7px;height:7px;border-radius:50%;animation:dot 1.4s ease-in-out infinite; }
+    .ld-dots span:nth-child(1){background:#38bdf8}
+    .ld-dots span:nth-child(2){background:#3b82f6;animation-delay:.2s}
+    .ld-dots span:nth-child(3){background:#2563eb;animation-delay:.4s}
     @keyframes dot { 0%,70%,100%{transform:scale(.45);opacity:.28} 35%{transform:scale(1.3);opacity:1} }
-    .ld-prog { z-index:1; animation:pop-in .6s .2s both; text-align:center; }
-    .ld-track { width:160px; height:3px; background:rgba(255,255,255,.07); border-radius:3px; overflow:hidden; }
-    .ld-fill  { height:100%; border-radius:3px; background:linear-gradient(90deg,#1d4ed8,#38bdf8,#34d399); background-size:300% 100%; animation:bar-grow 3.2s cubic-bezier(.4,0,.2,1) forwards, shimmer 1.8s linear infinite; }
+    .ld-prog { z-index:1;animation:pop-in .6s .2s both;text-align:center; }
+    .ld-track { width:160px;height:3px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden; }
+    .ld-fill  { height:100%;border-radius:3px;background:linear-gradient(90deg,#1d4ed8,#38bdf8,#34d399);background-size:300% 100%;animation:bar-grow 3.2s cubic-bezier(.4,0,.2,1) forwards,shimmer 1.8s linear infinite; }
     @keyframes bar-grow { from{width:0%} to{width:88%} }
     @keyframes shimmer  { from{background-position:100% 0} to{background-position:-100% 0} }
-    .ld-msg { margin-top:8px; font-size:.68rem; color:rgba(148,180,212,.45); letter-spacing:.5px; }
+    .ld-msg { margin-top:8px;font-size:.68rem;color:rgba(148,180,212,.45);letter-spacing:.5px; }
 
     /* ══ INSTALL PROMPT ══ */
-    #install-bar { display:none; position:fixed; bottom:max(20px,env(safe-area-inset-bottom,20px)); left:50%; transform:translateX(-50%); z-index:8000; background:rgba(10,22,40,.96); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border:1px solid rgba(56,189,248,.16); border-radius:20px; padding:15px 18px; max-width:min(400px,calc(100vw - 32px)); width:100%; box-shadow:0 16px 48px rgba(0,0,0,.5); align-items:center; gap:12px; }
-    #install-bar.show { display:flex; animation:slide-up .38s cubic-bezier(.22,1,.36,1); }
+    #install-bar { display:none;position:fixed;bottom:max(20px,env(safe-area-inset-bottom,20px));left:50%;transform:translateX(-50%);z-index:8000;background:rgba(10,22,40,.96);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(56,189,248,.16);border-radius:20px;padding:15px 18px;max-width:min(400px,calc(100vw - 32px));width:100%;box-shadow:0 16px 48px rgba(0,0,0,.5);align-items:center;gap:12px; }
+    #install-bar.show { display:flex;animation:slide-up .38s cubic-bezier(.22,1,.36,1); }
     @keyframes slide-up { from{transform:translateX(-50%) translateY(70px);opacity:0} to{transform:translateX(-50%) translateY(0);opacity:1} }
-    .ib-icon img { width:42px; height:42px; border-radius:11px; }
+    .ib-icon img { width:42px;height:42px;border-radius:11px; }
     .ib-text { flex:1; }
-    .ib-text strong { display:block; font-size:.86rem; font-weight:700; color:#f0f6ff; }
-    .ib-text span   { font-size:.71rem; color:rgba(148,180,212,.7); }
-    .ib-cta { background:linear-gradient(135deg,#2563eb,#1d4fd8); color:#fff; border:none; border-radius:10px; padding:9px 15px; font-size:.78rem; font-weight:700; cursor:pointer; white-space:nowrap; }
-    .ib-x   { background:rgba(255,255,255,.07); border:none; border-radius:8px; color:rgba(148,180,212,.55); font-size:.95rem; cursor:pointer; padding:9px 10px; line-height:1; }
+    .ib-text strong { display:block;font-size:.86rem;font-weight:700;color:#f0f6ff; }
+    .ib-text span   { font-size:.71rem;color:rgba(148,180,212,.7); }
+    .ib-cta { background:linear-gradient(135deg,#2563eb,#1d4fd8);color:#fff;border:none;border-radius:10px;padding:9px 15px;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap; }
+    .ib-x   { background:rgba(255,255,255,.07);border:none;border-radius:8px;color:rgba(148,180,212,.55);font-size:.95rem;cursor:pointer;padding:9px 10px;line-height:1; }
   </style>
 </head>
 <body>
@@ -207,115 +158,76 @@
 
   <script>
     'use strict';
-
     var GAS_URL = 'https://script.google.com/macros/s/AKfycbwf_bHFVyH5OIBC3AcYRI9r18kR4xdXKa0EEJ64kESwu6DJiySjd_y9COIROUGPP08/exec';
-
-    var frame   = document.getElementById('app-frame');
-    var ldMsg   = document.getElementById('ld-msg');
-    var loader  = document.getElementById('loader');
+    var frame  = document.getElementById('app-frame');
+    var loader = document.getElementById('loader');
+    var ldMsg  = document.getElementById('ld-msg');
     var loaderHidden = false;
 
-    // ══════════════════════════════════════════════
-    // BƯỚC 1: Tính safe-area-inset-top thật sự
-    //
-    // Mục đích: che banner Google (30px) + để lộ phần từ safe-area trở xuống
-    //
-    // Trên iPhone có notch/dynamic island: safe-area-inset-top ≈ 47–59px
-    // Trên Android thông thường: safe-area-inset-top = 0px (status bar được tính riêng)
-    // Trên thiết bị không có notch: safe-area-inset-top = 0px
-    //
-    // GAS app (Main.html) đã tự xử lý safe-area trong #mobile-topbar:
-    //   padding-top: env(safe-area-inset-top, 0px)
-    // Vì vậy wrapper CHỈ cần trừ banner Google, KHÔNG cộng thêm safe-area.
-    //
-    // Công thức: iframe.top = -BANNER_HEIGHT (âm để clip banner)
-    //            iframe.height = 100% + BANNER_HEIGHT
-    // ══════════════════════════════════════════════
-    function adjustIframe() {
-      var BANNER_HEIGHT = 30; // px - chiều cao banner Google
-
-      // Đọc safe-area thực tế từ CSS env()
-      // Dùng trick: tạo element với height = env(safe-area-inset-top)
-      var probe = document.createElement('div');
-      probe.style.cssText = 'position:fixed;top:env(safe-area-inset-top,0px);left:0;width:1px;height:1px;pointer-events:none;';
-      document.body.appendChild(probe);
-      var safeTop = probe.getBoundingClientRect().top;
-      document.body.removeChild(probe);
-
-      // safeTop > 0 nghĩa là có notch
-      // GAS đã tự padding safeTop bên trong topbar của nó
-      // → wrapper chỉ cần clip banner, KHÔNG cộng thêm safeTop
-      frame.style.top    = '-' + BANNER_HEIGHT + 'px';
-      frame.style.height = 'calc(100% + ' + BANNER_HEIGHT + 'px)';
-
-      console.log('[PWA] safeTop=' + safeTop + 'px, bannerClip=' + BANNER_HEIGHT + 'px');
-    }
-
-    // Chạy điều chỉnh ngay
-    adjustIframe();
-
-    // ══════════════════════════════════════════════
-    // BƯỚC 2: Load iframe
-    // ══════════════════════════════════════════════
     function hideLoader() {
       if (loaderHidden) return;
       loaderHidden = true;
       loader.classList.add('out');
     }
 
-    // Bắt đầu load sau 300ms (loader animation kịp play)
-    setTimeout(function () {
+    /*
+      ┌─────────────────────────────────────────────────┐
+      │  CÁCH TÍNH OFFSET CHE BANNER GOOGLE             │
+      │                                                  │
+      │  Cấu trúc iframe từ trên xuống:                 │
+      │  ┌────────────────────────────┐ ← y=0           │
+      │  │  Banner Google (~30px)     │                  │
+      │  ├────────────────────────────┤ ← y=30          │
+      │  │  #mobile-topbar của GAS   │                  │
+      │  │  (safe-area + 36px nội dung)│                 │
+      │  ├────────────────────────────┤                  │
+      │  │  Content                   │                  │
+      │  └────────────────────────────┘                  │
+      │                                                  │
+      │  Wrapper đặt iframe top = -BANNER (30px)        │
+      │  → Banner bị clip, topbar lên đúng vị trí       │
+      │                                                  │
+      │  Main.html đã tự xử lý safe-area trong topbar  │
+      │  → Wrapper KHÔNG cộng thêm safe-area            │
+      └─────────────────────────────────────────────────┘
+    */
+    var BANNER = 30; // px - chiều cao banner Google
+
+    frame.style.top    = '-' + BANNER + 'px';
+    frame.style.height = 'calc(100% + ' + BANNER + 'px)';
+
+    // Load GAS sau 300ms
+    setTimeout(function() {
       ldMsg.textContent = 'Đang tải ứng dụng...';
       frame.src = GAS_URL;
     }, 300);
 
-    // Ẩn loader khi iframe báo load xong
-    // GAS redirect nhiều lần → event 'load' bắn nhiều lần → không sao,
-    // flag loaderHidden đảm bảo chỉ ẩn 1 lần sau khi load lần cuối
-    frame.addEventListener('load', function () {
+    // Ẩn loader khi iframe load
+    frame.addEventListener('load', function() {
       setTimeout(hideLoader, 800);
     });
 
-    // Fallback: sau 20s chưa load → vẫn ẩn loader
-    setTimeout(function () {
-      if (!loaderHidden) hideLoader();
-    }, 20000);
+    // Fallback 20s
+    setTimeout(function() { hideLoader(); }, 20000);
 
-    // Điều chỉnh lại khi resize (xoay màn hình)
-    window.addEventListener('resize', adjustIframe);
-
-    // ══════════════════════════════════════════════
-    // Service Worker + PWA Install
-    // ══════════════════════════════════════════════
+    // Service Worker
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(function () {});
+      navigator.serviceWorker.register('sw.js').catch(function(){});
     }
 
-    var deferredPrompt = null;
-    window.addEventListener('beforeinstallprompt', function (e) {
-      e.preventDefault();
-      deferredPrompt = e;
-      if (!window.matchMedia('(display-mode: standalone)').matches) {
-        setTimeout(function () {
-          document.getElementById('install-bar').classList.add('show');
-        }, 5000);
-      }
+    // PWA Install
+    var dp = null;
+    window.addEventListener('beforeinstallprompt', function(e) {
+      e.preventDefault(); dp = e;
+      if (!window.matchMedia('(display-mode: standalone)').matches)
+        setTimeout(function(){ document.getElementById('install-bar').classList.add('show'); }, 5000);
     });
+    function doInstall(){ document.getElementById('install-bar').classList.remove('show'); if(dp){dp.prompt();dp=null;} }
+    function dismissInstall(){ document.getElementById('install-bar').classList.remove('show'); }
 
-    function doInstall() {
-      document.getElementById('install-bar').classList.remove('show');
-      if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; }
-    }
-    function dismissInstall() {
-      document.getElementById('install-bar').classList.remove('show');
-    }
-
-    // Chặn bounce scroll iOS ở wrapper (iframe tự cuộn bên trong)
-    document.addEventListener('touchmove', function (e) {
-      if (e.target === document.body || e.target === document.documentElement) {
-        e.preventDefault();
-      }
-    }, { passive: false });
+    document.addEventListener('touchmove', function(e){
+      if(e.target===document.body||e.target===document.documentElement) e.preventDefault();
+    }, {passive:false});
   </script>
 </body>
 </html>
