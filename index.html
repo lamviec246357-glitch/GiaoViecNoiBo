@@ -5,418 +5,291 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Giao Việc Nội Bộ</title>
 
-  <!-- PWA -->
+  <!-- PWA + iOS -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Giao Việc">
-  <meta name="theme-color" content="#0a1628">
+  <meta name="theme-color" content="#1a1a2e">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
 
     html, body {
-      width: 100%; height: 100%;
-      overflow: hidden;
-      background: #0a1628;
-      font-family: -apple-system, 'Be Vietnam Pro', BlinkMacSystemFont, sans-serif;
-      -webkit-tap-highlight-color: transparent;
+      width:100%; height:100%;
+      overflow:hidden;
+      /* #1a1a2e = chính xác màu topbar GAS → lấp đầy 2 bên */
+      background:#1a1a2e;
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      -webkit-tap-highlight-color:transparent;
+      -webkit-text-size-adjust:100%;
     }
 
-    /* ── Toàn màn hình, hỗ trợ notch iPhone ── */
-    #shell {
-      position: fixed;
-      top: env(safe-area-inset-top, 0px);
-      bottom: env(safe-area-inset-bottom, 0px);
-      left: env(safe-area-inset-left, 0px);
-      right: env(safe-area-inset-right, 0px);
-      overflow: hidden;
-      background: #0a1628;
+    /* Safe-area phía trên (notch/dynamic island iPhone) */
+    #safe-top {
+      position:fixed; top:0; left:0; right:0;
+      height:env(safe-area-inset-top,0px);
+      background:#1a1a2e; /* khớp topbar GAS */
+      z-index:500; pointer-events:none;
     }
 
-    /* ── iframe: che banner Google ~45px ── */
+    /* Safe-area phía dưới (home indicator iPhone) */
+    #safe-bottom {
+      position:fixed; bottom:0; left:0; right:0;
+      height:env(safe-area-inset-bottom,0px);
+      background:#f0f4f8; /* khớp màu nền content GAS */
+      z-index:500; pointer-events:none;
+    }
+
+    /* Shell chứa iframe — bắt đầu ngay sau safe-area trên */
+    #app-container {
+      position:fixed;
+      top:env(safe-area-inset-top,0px);
+      bottom:env(safe-area-inset-bottom,0px);
+      left:0; right:0;
+      overflow:hidden;
+      background:#1a1a2e;
+    }
+
+    /*
+      Kỹ thuật che banner "Ứng dụng này do người dùng Google tạo":
+        - overflow:hidden  → clip nội dung phía trên
+        - iframe top:-45px → đẩy iframe lên 45px (che banner)
+        - iframe height:calc(100%+45px) → bù lại để đủ chiều cao
+    */
+    #frame-wrap {
+      position:absolute;
+      top:0; bottom:0; left:0; right:0;
+      overflow:hidden;
+      background:#1a1a2e;
+    }
+
     #app-frame {
-      position: absolute;
-      top: -45px;
-      left: 0; right: 0;
-      width: 100%;
-      height: calc(100% + 45px);
-      border: none;
-      display: block;
-      background: transparent;
+      position:absolute;
+      top:-45px; left:0;
+      width:100%;
+      height:calc(100% + 45px);
+      border:none; outline:none;
+      display:block;
+      background:transparent;
     }
 
-    /* ══════════════════════════
-       LOADING SCREEN
-    ══════════════════════════ */
+    /* ══ LOADING SCREEN ══ */
     #loader {
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 24px;
+      position:fixed; inset:0; z-index:9999;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center; gap:28px;
       background:
-        radial-gradient(ellipse 70% 50% at 20% 15%, rgba(37,99,235,0.28) 0%, transparent 60%),
-        radial-gradient(ellipse 50% 40% at 80% 85%, rgba(14,165,233,0.18) 0%, transparent 55%),
-        linear-gradient(160deg, #0a1628 0%, #0f2044 50%, #0a1628 100%);
-      transition: opacity 0.5s ease, visibility 0.5s ease;
+        radial-gradient(ellipse 80% 55% at 18% 12%,rgba(37,99,235,.32) 0%,transparent 58%),
+        radial-gradient(ellipse 55% 45% at 82% 88%,rgba(14,165,233,.2) 0%,transparent 52%),
+        linear-gradient(155deg,#060e1f 0%,#0d1b38 45%,#0a1225 100%);
+      transition:opacity .55s cubic-bezier(.4,0,.2,1),
+                 visibility .55s cubic-bezier(.4,0,.2,1);
     }
-
-    /* Grid overlay */
-    #loader::after {
-      content: '';
-      position: absolute; inset: 0; pointer-events: none;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
-      background-size: 44px 44px;
+    #loader::before {
+      content:''; position:absolute; inset:0; pointer-events:none;
+      background-image:radial-gradient(circle,rgba(96,165,250,.12) 1px,transparent 1px);
+      background-size:30px 30px;
     }
+    #loader.out { opacity:0; visibility:hidden; pointer-events:none; }
 
-    #loader.out { opacity: 0; visibility: hidden; pointer-events: none; }
-
-    /* Icon với vòng xoay */
-    .ld-icon-wrap {
-      position: relative;
-      width: 96px; height: 96px;
-      animation: pop-in 0.55s cubic-bezier(0.22,1,0.36,1) both;
+    .ld-wrap {
+      position:relative; width:108px; height:108px;
+      animation:pop-in .6s cubic-bezier(.22,1,.36,1) both;
     }
     @keyframes pop-in {
-      from { opacity:0; transform: scale(0.65); }
-      to   { opacity:1; transform: scale(1); }
+      from{opacity:0;transform:scale(.55) translateY(24px)}
+      to  {opacity:1;transform:scale(1) translateY(0)}
     }
+    .ld-glow {
+      position:absolute; inset:-28px; border-radius:50%;
+      background:radial-gradient(circle,rgba(37,99,235,.2) 0%,transparent 70%);
+      animation:glow 2.2s ease-in-out infinite;
+    }
+    @keyframes glow{0%,100%{transform:scale(.85);opacity:.4}50%{transform:scale(1.15);opacity:.9}}
+    .ld-ring-a{position:absolute;inset:-16px;border-radius:50%;border:2.5px solid transparent;border-top-color:#38bdf8;border-right-color:rgba(56,189,248,.18);animation:spin 1.15s linear infinite}
+    .ld-ring-b{position:absolute;inset:-26px;border-radius:50%;border:1.5px solid transparent;border-left-color:rgba(37,99,235,.45);border-bottom-color:rgba(56,189,248,.12);animation:spin 2.3s linear infinite reverse}
+    .ld-ring-c{position:absolute;inset:-8px;border-radius:50%;border:1px solid rgba(56,189,248,.2);border-top-color:rgba(56,189,248,.5);animation:spin .75s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .ld-icon{width:108px;height:108px;border-radius:26px;overflow:hidden;box-shadow:0 0 0 1.5px rgba(255,255,255,.1),0 12px 40px rgba(37,99,235,.65),0 4px 12px rgba(0,0,0,.5);position:relative;z-index:1}
+    .ld-icon img{width:100%;height:100%;display:block;object-fit:cover}
+    .ld-icon-fb{width:100%;height:100%;background:linear-gradient(135deg,#1d4ed8,#0a1628);display:flex;align-items:center;justify-content:center;font-size:3rem;display:none}
+    .ld-text{text-align:center;z-index:1;animation:pop-in .6s .1s cubic-bezier(.22,1,.36,1) both}
+    .ld-name{font-size:1.35rem;font-weight:800;color:#f0f6ff;letter-spacing:-.4px;margin-bottom:4px;text-shadow:0 2px 16px rgba(37,99,235,.5)}
+    .ld-sub{font-size:.73rem;color:rgba(148,180,212,.6);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}
+    .ld-dots{display:flex;gap:8px;justify-content:center}
+    .ld-dots span{width:7px;height:7px;border-radius:50%;animation:dot 1.4s ease-in-out infinite}
+    .ld-dots span:nth-child(1){background:#38bdf8}
+    .ld-dots span:nth-child(2){background:#3b82f6;animation-delay:.2s}
+    .ld-dots span:nth-child(3){background:#2563eb;animation-delay:.4s}
+    @keyframes dot{0%,70%,100%{transform:scale(.45);opacity:.28}35%{transform:scale(1.3);opacity:1}}
+    .ld-prog{z-index:1;animation:pop-in .6s .2s both;text-align:center}
+    .ld-track{width:160px;height:3px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden}
+    .ld-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#1d4ed8,#38bdf8,#34d399);background-size:300% 100%;animation:bar-grow 3.2s cubic-bezier(.4,0,.2,1) forwards,shimmer 1.8s linear infinite}
+    @keyframes bar-grow{from{width:0%}to{width:88%}}
+    @keyframes shimmer{from{background-position:100% 0}to{background-position:-100% 0}}
+    .ld-msg{margin-top:8px;font-size:.68rem;color:rgba(148,180,212,.45);letter-spacing:.5px}
 
-    .ld-ring {
-      position: absolute; inset: -12px;
-      border-radius: 50%;
-      border: 2.5px solid transparent;
-      border-top-color: #38bdf8;
-      border-right-color: rgba(56,189,248,0.2);
-      animation: spin 1.1s linear infinite;
-    }
-    .ld-ring2 {
-      position: absolute; inset: -22px;
-      border-radius: 50%;
-      border: 1.5px solid transparent;
-      border-bottom-color: rgba(37,99,235,0.3);
-      animation: spin 2.2s linear infinite reverse;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    /* ══ ERROR SCREEN ══ */
+    #error-screen{position:fixed;inset:0;z-index:9998;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:32px 24px;background:linear-gradient(155deg,#060e1f,#0d1b38);text-align:center}
+    #error-screen.show{display:flex}
+    .err-ring{width:78px;height:78px;border-radius:50%;background:rgba(239,68,68,.1);border:2px solid rgba(239,68,68,.28);display:flex;align-items:center;justify-content:center;font-size:2rem;box-shadow:0 0 28px rgba(239,68,68,.18)}
+    .err-title{font-size:1.1rem;font-weight:800;color:#f0f6ff}
+    .err-desc{font-size:.8rem;color:rgba(148,180,212,.72);line-height:1.7;max-width:300px}
+    .err-code{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px 16px;font-family:'Courier New',monospace;font-size:.72rem;color:#38bdf8;text-align:left;max-width:300px;line-height:2}
+    .err-acts{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+    .err-retry{background:linear-gradient(135deg,#2563eb,#1d4fd8);color:#fff;border:none;border-radius:12px;padding:12px 22px;font-size:.85rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(37,99,235,.45)}
+    .err-open{display:inline-flex;align-items:center;gap:6px;color:#38bdf8;text-decoration:none;font-size:.82rem;font-weight:600;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.22);border-radius:12px;padding:12px 20px}
 
-    .ld-icon {
-      width: 96px; height: 96px;
-      border-radius: 22px;
-      overflow: hidden;
-      box-shadow: 0 8px 32px rgba(37,99,235,0.55), 0 0 0 1px rgba(255,255,255,0.08);
-    }
-    .ld-icon img { width: 100%; height: 100%; display: block; }
-
-    /* Text */
-    .ld-text {
-      text-align: center; z-index: 1;
-      animation: pop-in 0.55s 0.15s cubic-bezier(0.22,1,0.36,1) both;
-    }
-    .ld-text h2 {
-      font-size: 1.25rem; font-weight: 800;
-      color: #f0f6ff; letter-spacing: -0.3px; margin-bottom: 5px;
-    }
-    .ld-text p { font-size: 0.78rem; color: rgba(148,180,212,0.7); }
-
-    /* Dots */
-    .ld-dots { display: flex; gap: 7px; margin-top: 6px; justify-content: center; }
-    .ld-dots span {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: #38bdf8;
-      animation: bounce 1.2s ease-in-out infinite;
-    }
-    .ld-dots span:nth-child(2) { animation-delay:.18s; background:#3b82f6; }
-    .ld-dots span:nth-child(3) { animation-delay:.36s; background:#2563eb; }
-    @keyframes bounce {
-      0%,80%,100% { transform:scale(0.55); opacity:0.35; }
-      40%         { transform:scale(1);    opacity:1; }
-    }
-
-    /* Progress bar */
-    .ld-bar-wrap {
-      width: 140px; height: 3px;
-      background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;
-      z-index: 1;
-      animation: pop-in 0.55s 0.25s both;
-    }
-    .ld-bar {
-      height: 100%;
-      background: linear-gradient(90deg, #2563eb, #38bdf8);
-      animation: fill 2.8s cubic-bezier(.4,0,.2,1) forwards;
-    }
-    @keyframes fill { from { width:0% } to { width:88% } }
-
-    /* ══════════════════════════
-       ERROR SCREEN
-    ══════════════════════════ */
-    #error-screen {
-      position: fixed; inset: 0; z-index: 9998;
-      display: none;
-      flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 16px; padding: 32px;
-      background: linear-gradient(160deg, #0a1628, #0f2044);
-      text-align: center;
-    }
-    #error-screen.show { display: flex; }
-
-    .err-icon {
-      width: 72px; height: 72px; border-radius: 50%;
-      background: rgba(239,68,68,0.12);
-      border: 2px solid rgba(239,68,68,0.3);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 2rem;
-    }
-    .err-title { font-size: 1.1rem; font-weight: 800; color: #f0f6ff; }
-    .err-desc  { font-size: 0.82rem; color: rgba(148,180,212,0.75); line-height: 1.6; max-width: 320px; }
-    .err-btn {
-      margin-top: 8px;
-      background: linear-gradient(135deg, #2563eb, #1d4fd8);
-      color: #fff; border: none; border-radius: 12px;
-      padding: 12px 28px; font-size: 0.88rem; font-weight: 700;
-      cursor: pointer; box-shadow: 0 4px 16px rgba(37,99,235,0.4);
-    }
-    .err-open-link {
-      font-size: 0.75rem; color: #38bdf8; text-decoration: none;
-      border-bottom: 1px dashed rgba(56,189,248,0.4);
-      padding-bottom: 1px;
-    }
-
-    /* ══════════════════════════
-       INSTALL PROMPT
-    ══════════════════════════ */
-    #install-bar {
-      display: none;
-      position: fixed; bottom: 20px; left: 50%;
-      transform: translateX(-50%);
-      z-index: 8000;
-      background: rgba(15,32,68,0.96);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(56,189,248,0.2);
-      border-radius: 18px; padding: 14px 18px;
-      max-width: calc(100vw - 32px); width: 380px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.45);
-      align-items: center; gap: 12px;
-    }
-    #install-bar.show {
-      display: flex;
-      animation: slide-up 0.35s cubic-bezier(0.22,1,0.36,1);
-    }
-    @keyframes slide-up {
-      from { transform: translateX(-50%) translateY(60px); opacity:0; }
-      to   { transform: translateX(-50%) translateY(0); opacity:1; }
-    }
-    .ib-icon { width: 40px; height: 40px; border-radius: 10px; flex-shrink:0; }
-    .ib-icon img { width:100%; height:100%; border-radius:10px; }
-    .ib-text { flex:1; }
-    .ib-text b { display:block; font-size:0.85rem; color:#f0f6ff; font-weight:700; }
-    .ib-text span { font-size:0.72rem; color:rgba(148,180,212,0.75); }
-    .ib-btn {
-      background: linear-gradient(135deg,#2563eb,#1d4fd8);
-      color:#fff; border:none; border-radius:9px;
-      padding:8px 14px; font-size:0.78rem; font-weight:700;
-      cursor:pointer; white-space:nowrap;
-      box-shadow: 0 3px 10px rgba(37,99,235,0.4);
-    }
-    .ib-dismiss {
-      background:none; border:none; color:rgba(148,180,212,0.5);
-      font-size:1.2rem; cursor:pointer; padding:4px; line-height:1;
-      flex-shrink:0;
-    }
+    /* ══ INSTALL PROMPT ══ */
+    #install-bar{display:none;position:fixed;bottom:max(20px,env(safe-area-inset-bottom,20px));left:50%;transform:translateX(-50%);z-index:8000;background:rgba(10,22,40,.96);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(56,189,248,.16);border-radius:20px;padding:15px 18px;max-width:min(400px,calc(100vw - 32px));width:100%;box-shadow:0 16px 48px rgba(0,0,0,.5);align-items:center;gap:12px}
+    #install-bar.show{display:flex;animation:slide-up .38s cubic-bezier(.22,1,.36,1)}
+    @keyframes slide-up{from{transform:translateX(-50%) translateY(70px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
+    .ib-icon img{width:42px;height:42px;border-radius:11px}
+    .ib-text{flex:1}
+    .ib-text strong{display:block;font-size:.86rem;font-weight:700;color:#f0f6ff}
+    .ib-text span{font-size:.71rem;color:rgba(148,180,212,.7)}
+    .ib-cta{background:linear-gradient(135deg,#2563eb,#1d4fd8);color:#fff;border:none;border-radius:10px;padding:9px 15px;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap}
+    .ib-x{background:rgba(255,255,255,.07);border:none;border-radius:8px;color:rgba(148,180,212,.55);font-size:.95rem;cursor:pointer;padding:9px 10px;line-height:1}
   </style>
 </head>
 <body>
 
-  <!-- LOADING SCREEN -->
+  <!-- Safe-area fills -->
+  <div id="safe-top"></div>
+  <div id="safe-bottom"></div>
+
+  <!-- Loading -->
   <div id="loader">
-    <div class="ld-icon-wrap">
-      <div class="ld-ring2"></div>
-      <div class="ld-ring"></div>
+    <div class="ld-wrap">
+      <div class="ld-glow"></div>
+      <div class="ld-ring-b"></div>
+      <div class="ld-ring-a"></div>
+      <div class="ld-ring-c"></div>
       <div class="ld-icon">
-        <img src="icons/icon-192.png" alt="icon"
-             onerror="this.style.display='none'; this.parentElement.style.background='linear-gradient(135deg,#1d4ed8,#0a1628)'">
+        <img src="icons/icon-192.png" alt="Giao Việc"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="ld-icon-fb">📋</div>
       </div>
     </div>
-
     <div class="ld-text">
-      <h2>Giao Việc Nội Bộ</h2>
-      <p>Đang khởi động hệ thống...</p>
-      <div class="ld-dots">
-        <span></span><span></span><span></span>
-      </div>
+      <div class="ld-name">Giao Việc Nội Bộ</div>
+      <div class="ld-sub">Hệ thống quản lý công việc</div>
+      <div class="ld-dots"><span></span><span></span><span></span></div>
     </div>
-
-    <div class="ld-bar-wrap">
-      <div class="ld-bar"></div>
+    <div class="ld-prog">
+      <div class="ld-track"><div class="ld-fill"></div></div>
+      <div class="ld-msg" id="ld-msg">Đang kết nối...</div>
     </div>
   </div>
 
-  <!-- ERROR SCREEN -->
+  <!-- Error -->
   <div id="error-screen">
-    <div class="err-icon">⚠️</div>
+    <div class="err-ring">⚠️</div>
     <div class="err-title">Không thể tải ứng dụng</div>
-    <div class="err-desc">
-      Ứng dụng Google Apps Script chưa cho phép nhúng vào iframe.<br><br>
-      <strong>Cách sửa:</strong> Mở Google Apps Script → <code>Page_Router.gs</code> → thêm dòng
-      <code style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-size:0.75rem;">
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-      </code>
-      vào hàm <code>doGet()</code>
+    <div class="err-desc">Google Apps Script đang chặn iframe.<br>Thêm dòng sau vào <strong>doGet()</strong> trong <strong>Page_Router.gs</strong>:</div>
+    <div class="err-code">.setXFrameOptionsMode(<br>&nbsp;&nbsp;HtmlService<br>&nbsp;&nbsp;.XFrameOptionsMode<br>&nbsp;&nbsp;.ALLOWALL<br>)</div>
+    <div class="err-acts">
+      <button class="err-retry" onclick="reloadApp()">↺ Thử lại</button>
+      <a class="err-open" id="direct-url" href="#" target="_blank">Mở trực tiếp ↗</a>
     </div>
-    <button class="err-btn" onclick="reloadApp()">🔄 Thử lại</button>
-    <a class="err-open-link" id="direct-link"
-       href="https://script.google.com/macros/s/AKfycbwf_bHFVyH5OIBC3AcYRI9r18kR4xdXKa0EEJ64kESwu6DJiySjd_y9COIROUGPP08/exec"
-       target="_blank">
-      Mở trực tiếp ↗
-    </a>
   </div>
 
-  <!-- APP SHELL -->
-  <div id="shell">
-    <iframe
-      id="app-frame"
-      src="about:blank"
-      title="Hệ Thống Giao Việc Nội Bộ"
-      allow="camera; microphone; geolocation; clipboard-write; clipboard-read; accelerometer; fullscreen"
-      allowfullscreen
-      sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals allow-top-navigation-by-user-activation"
-    ></iframe>
+  <!-- App Shell -->
+  <div id="app-container">
+    <div id="frame-wrap">
+      <iframe
+        id="app-frame"
+        src="about:blank"
+        title="Giao Việc Nội Bộ"
+        allow="camera *; microphone *; geolocation *; clipboard-write; clipboard-read; fullscreen"
+        allowfullscreen
+        sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals allow-top-navigation-by-user-activation"
+      ></iframe>
+    </div>
   </div>
 
-  <!-- INSTALL PROMPT -->
+  <!-- Install Prompt -->
   <div id="install-bar">
-    <div class="ib-icon">
-      <img src="icons/icon-96.png" alt="">
-    </div>
+    <div class="ib-icon"><img src="icons/icon-96.png" alt=""></div>
     <div class="ib-text">
-      <b>Cài đặt ứng dụng</b>
+      <strong>Cài đặt ứng dụng</strong>
       <span>Thêm vào màn hình chính</span>
     </div>
-    <button class="ib-btn" onclick="doInstall()">Cài đặt</button>
-    <button class="ib-dismiss" onclick="dismissInstall()" aria-label="Bỏ qua">✕</button>
+    <button class="ib-cta" onclick="doInstall()">Cài đặt</button>
+    <button class="ib-x"   onclick="dismissInstall()">✕</button>
   </div>
 
   <script>
-    var GAS_URL = 'https://script.google.com/macros/s/AKfycbwf_bHFVyH5OIBC3AcYRI9r18kR4xdXKa0EEJ64kESwu6DJiySjd_y9COIROUGPP08/exec';
+    'use strict';
+    var GAS = 'https://script.google.com/macros/s/AKfycbwf_bHFVyH5OIBC3AcYRI9r18kR4xdXKa0EEJ64kESwu6DJiySjd_y9COIROUGPP08/exec';
+    var loader=document.getElementById('loader'),
+        errSc=document.getElementById('error-screen'),
+        frame=document.getElementById('app-frame'),
+        ldMsg=document.getElementById('ld-msg'),
+        tE,tF;
 
-    var loader      = document.getElementById('loader');
-    var errorScreen = document.getElementById('error-screen');
-    var frame       = document.getElementById('app-frame');
-    var shell       = document.getElementById('shell');
-    var loadTimer, errorTimer;
+    document.getElementById('direct-url').href=GAS;
 
-    // ── Khởi động: load iframe sau 100ms ──
-    window.addEventListener('load', function() {
-      setTimeout(startLoad, 100);
+    window.addEventListener('load',function(){
+      setTimeout(function(){
+        ldMsg.textContent='Đang tải ứng dụng...';
+        frame.src=GAS;
+        tE=setTimeout(showError,15000);
+        tF=setTimeout(hideLoader,12000);
+      },280);
     });
 
-    function startLoad() {
-      // Đặt src SAU khi page load để tránh FOUC
-      frame.src = GAS_URL;
-
-      // Timeout 12s → nếu không load được thì hiện lỗi
-      errorTimer = setTimeout(function() {
-        showError();
-      }, 12000);
-
-      // Fallback ẩn loader sau 10s dù sao
-      loadTimer = setTimeout(function() {
-        hideLoader();
-      }, 10000);
-    }
-
-    frame.addEventListener('load', function() {
-      clearTimeout(errorTimer);
-      clearTimeout(loadTimer);
-
-      // Kiểm tra nội dung iframe có bị chặn không
-      try {
-        var doc = frame.contentDocument || frame.contentWindow.document;
-        // Nếu doc.body rỗng hoặc title là "about:blank" → có thể bị chặn
-        if (doc && doc.body && doc.body.innerHTML.trim() === '') {
-          showError();
-          return;
-        }
-      } catch(e) {
-        // Cross-origin → bình thường, không thể đọc → app đang chạy
-      }
-
-      setTimeout(hideLoader, 700);
+    frame.addEventListener('load',function(){
+      clearTimeout(tE); clearTimeout(tF);
+      try{
+        var doc=frame.contentDocument||frame.contentWindow.document;
+        if(doc&&doc.body&&doc.body.innerHTML.trim()===''){showError();return;}
+      }catch(e){}
+      /* Cập nhật safe-bottom khớp content GAS */
+      document.getElementById('safe-bottom').style.background='#f0f4f8';
+      ldMsg.textContent='Sẵn sàng!';
+      setTimeout(hideLoader,700);
     });
 
-    frame.addEventListener('error', function() {
-      clearTimeout(errorTimer);
-      clearTimeout(loadTimer);
-      showError();
-    });
+    frame.addEventListener('error',function(){clearTimeout(tE);clearTimeout(tF);showError();});
 
-    function hideLoader() {
-      loader.classList.add('out');
-    }
-
-    function showError() {
-      hideLoader();
-      errorScreen.classList.add('show');
-    }
-
-    function reloadApp() {
-      errorScreen.classList.remove('show');
+    function hideLoader(){loader.classList.add('out');}
+    function showError(){hideLoader();errSc.classList.add('show');}
+    function reloadApp(){
+      errSc.classList.remove('show');
       loader.classList.remove('out');
-      frame.src = 'about:blank';
-      setTimeout(function() {
-        frame.src = GAS_URL;
-        errorTimer = setTimeout(showError, 12000);
-      }, 300);
+      document.getElementById('safe-bottom').style.background='#1a1a2e';
+      ldMsg.textContent='Đang thử lại...';
+      frame.src='about:blank';
+      setTimeout(function(){
+        frame.src=GAS;
+        tE=setTimeout(showError,15000);
+        tF=setTimeout(hideLoader,12000);
+      },350);
     }
 
-    // ── Service Worker ──
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('sw.js')
-          .catch(function(e) { console.warn('SW:', e); });
-      });
-    }
+    /* Service Worker */
+    if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});
 
-    // ── PWA Install Prompt ──
-    var deferredPrompt = null;
-    window.addEventListener('beforeinstallprompt', function(e) {
-      e.preventDefault();
-      deferredPrompt = e;
-      if (!window.matchMedia('(display-mode: standalone)').matches) {
-        setTimeout(function() {
-          document.getElementById('install-bar').classList.add('show');
-        }, 4000);
-      }
+    /* Install Prompt */
+    var dp=null;
+    window.addEventListener('beforeinstallprompt',function(e){
+      e.preventDefault(); dp=e;
+      if(!window.matchMedia('(display-mode:standalone)').matches)
+        setTimeout(function(){document.getElementById('install-bar').classList.add('show');},5000);
     });
+    function doInstall(){document.getElementById('install-bar').classList.remove('show');if(dp){dp.prompt();dp=null;}}
+    function dismissInstall(){document.getElementById('install-bar').classList.remove('show');}
 
-    function doInstall() {
-      document.getElementById('install-bar').classList.remove('show');
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        deferredPrompt = null;
-      }
-    }
-    function dismissInstall() {
-      document.getElementById('install-bar').classList.remove('show');
-    }
-
-    // ── iOS: chặn rubber-band scroll ──
-    document.body.addEventListener('touchmove', function(e) {
-      if (e.target === document.body || e.target === document.documentElement) {
-        e.preventDefault();
-      }
-    }, { passive: false });
+    /* Chặn bounce scroll iOS */
+    document.addEventListener('touchmove',function(e){
+      if(e.target===document.body||e.target===document.documentElement)e.preventDefault();
+    },{passive:false});
   </script>
 </body>
 </html>
