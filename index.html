@@ -246,11 +246,13 @@
 
     frame.addEventListener('load',function(){
       clearTimeout(tE); clearTimeout(tF);
-      try{
-        var doc=frame.contentDocument||frame.contentWindow.document;
-        if(doc&&doc.body&&doc.body.innerHTML.trim()===''){showError();return;}
-      }catch(e){}
-      /* Cập nhật safe-bottom khớp content GAS */
+      /*
+        KHÔNG kiểm tra contentDocument.body.innerHTML ở đây.
+        Trên mobile, GAS redirect qua trang Google login (cross-origin)
+        trước khi load app thật → body rỗng hoặc throw exception
+        → gây false-positive "Không thể tải".
+        Chỉ cần ẩn loader khi iframe báo load xong là đủ.
+      */
       document.getElementById('safe-bottom').style.background='#f0f4f8';
       ldMsg.textContent='Sẵn sàng!';
       setTimeout(hideLoader,700);
@@ -263,7 +265,7 @@
     function reloadApp(){
       errSc.classList.remove('show');
       loader.classList.remove('out');
-      document.getElementById('safe-bottom').style.background='#1a1a2e';
+      
       ldMsg.textContent='Đang thử lại...';
       frame.src='about:blank';
       setTimeout(function(){
