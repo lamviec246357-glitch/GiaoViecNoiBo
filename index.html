@@ -2,7 +2,11 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <!--
+    viewport-fit=cover + user-scalable=no: fullscreen như native app
+    interactive-widget=resizes-content: fix iOS URL bar resize behavior
+  -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
   <title>Giao Việc Nội Bộ</title>
 
   <meta name="mobile-web-app-capable" content="yes">
@@ -18,37 +22,42 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html, body {
-      width: 100%; height: 100%;
+    html {
+      /* dvh = dynamic viewport height: tự trừ thanh địa chỉ browser */
+      height: 100%;
+      height: 100dvh;
+    }
+
+    body {
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
       overflow: hidden;
-      background: #0a1628; /* = màu body GAS app */
+      margin: 0; padding: 0;
+      background: #0a1628;
       -webkit-tap-highlight-color: transparent;
       -webkit-text-size-adjust: 100%;
     }
 
-    #app-container {
-      position: fixed;
-      top: 0; bottom: 0; left: 0; right: 0;
-      overflow: hidden;
-      background: #0a1628;
-    }
-
-    #frame-wrap {
-      position: absolute;
-      top: 0; bottom: 0; left: 0; right: 0;
-      overflow: hidden;
-      background: #0a1628;
-    }
-
-    /* Giá trị mặc định — JS ghi đè sau khi tính safe-area */
+    /*
+      iframe FULL MÀN HÌNH thật sự:
+      - position: fixed + inset:0 → không bị ảnh hưởng bởi scroll hay resize
+      - width/height: 100% của viewport
+      - KHÔNG có top âm, KHÔNG có offset
+      - GAS app tự xử lý safe-area bên trong
+    */
     #app-frame {
-      position: absolute;
-      top: -30px; left: 0;
+      position: fixed;
+      top: 0; left: 0;
       width: 100%;
-      height: calc(100% + 30px);
-      border: none; outline: none;
+      height: 100%;
+      /* dvh đảm bảo chiều cao đúng kể cả khi URL bar ẩn/hiện */
+      height: 100dvh;
+      border: none;
+      outline: none;
+      margin: 0; padding: 0;
       display: block;
-      background: transparent;
+      background: #0a1628;
     }
 
     /* ══ LOADING ══ */
@@ -132,18 +141,14 @@
     </div>
   </div>
 
-  <!-- App Shell -->
-  <div id="app-container">
-    <div id="frame-wrap">
-      <iframe
-        id="app-frame"
-        src="about:blank"
-        title="Giao Việc Nội Bộ"
-        allow="camera; microphone; geolocation; clipboard-write; clipboard-read; fullscreen"
-        allowfullscreen
-      ></iframe>
-    </div>
-  </div>
+  <!-- iframe full màn hình, không offset -->
+  <iframe
+    id="app-frame"
+    src="about:blank"
+    title="Giao Việc Nội Bộ"
+    allow="camera; microphone; geolocation; clipboard-write; clipboard-read; fullscreen"
+    allowfullscreen
+  ></iframe>
 
   <!-- Install Prompt -->
   <div id="install-bar">
@@ -159,9 +164,8 @@
   <script>
     'use strict';
     var GAS_URL = 'https://script.google.com/macros/s/AKfycbwf_bHFVyH5OIBC3AcYRI9r18kR4xdXKa0EEJ64kESwu6DJiySjd_y9COIROUGPP08/exec';
-    var frame  = document.getElementById('app-frame');
-    var loader = document.getElementById('loader');
-    var ldMsg  = document.getElementById('ld-msg');
+    var frame        = document.getElementById('app-frame');
+    var loader       = document.getElementById('loader');
     var loaderHidden = false;
 
     function hideLoader() {
@@ -170,52 +174,18 @@
       loader.classList.add('out');
     }
 
-    /*
-      ┌─────────────────────────────────────────────────┐
-      │  CÁCH TÍNH OFFSET CHE BANNER GOOGLE             │
-      │                                                  │
-      │  Cấu trúc iframe từ trên xuống:                 │
-      │  ┌────────────────────────────┐ ← y=0           │
-      │  │  Banner Google (~30px)     │                  │
-      │  ├────────────────────────────┤ ← y=30          │
-      │  │  #mobile-topbar của GAS   │                  │
-      │  │  (safe-area + 36px nội dung)│                 │
-      │  ├────────────────────────────┤                  │
-      │  │  Content                   │                  │
-      │  └────────────────────────────┘                  │
-      │                                                  │
-      │  Wrapper đặt iframe top = -BANNER (30px)        │
-      │  → Banner bị clip, topbar lên đúng vị trí       │
-      │                                                  │
-      │  Main.html đã tự xử lý safe-area trong topbar  │
-      │  → Wrapper KHÔNG cộng thêm safe-area            │
-      └─────────────────────────────────────────────────┘
-    */
-    var BANNER = 30; // px - chiều cao banner Google
-
-    frame.style.top    = '-' + BANNER + 'px';
-    frame.style.height = 'calc(100% + ' + BANNER + 'px)';
-
-    // Load GAS sau 300ms
     setTimeout(function() {
-      ldMsg.textContent = 'Đang tải ứng dụng...';
+      document.getElementById('ld-msg').textContent = 'Đang tải ứng dụng...';
       frame.src = GAS_URL;
     }, 300);
 
-    // Ẩn loader khi iframe load
-    frame.addEventListener('load', function() {
-      setTimeout(hideLoader, 800);
-    });
+    frame.addEventListener('load', function() { setTimeout(hideLoader, 800); });
+    setTimeout(hideLoader, 20000);
 
-    // Fallback 20s
-    setTimeout(function() { hideLoader(); }, 20000);
-
-    // Service Worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(function(){});
     }
 
-    // PWA Install
     var dp = null;
     window.addEventListener('beforeinstallprompt', function(e) {
       e.preventDefault(); dp = e;
